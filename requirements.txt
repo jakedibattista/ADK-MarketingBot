@@ -2,16 +2,16 @@
 # For Cloud Run service with Google ADK integration
 
 # Core web framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
 
 # Google ADK (Agent Development Kit)
-google-cloud-aiplatform[adk]>=1.70.0
+google-adk>=1.4.0
 
 # Google AI and ML services
 google-genai>=0.8.0
 google-cloud-storage>=2.10.0
-google-cloud-secretmanager>=2.16.0
+google-cloud-secret-manager>=2.16.0
 
 # Data validation and processing
 pydantic>=2.5.0
