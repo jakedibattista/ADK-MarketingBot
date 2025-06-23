@@ -1,0 +1,50 @@
+# ADK Marketing Platform - Python Dependencies
+# For Cloud Run service with Google ADK integration
+
+# Core web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Google ADK (Agent Development Kit)
+google-cloud-aiplatform[adk]>=1.70.0
+
+# Google AI and ML services
+google-genai>=0.8.0
+google-cloud-storage>=2.10.0
+google-cloud-secretmanager>=2.16.0
+
+# Data validation and processing
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# HTTP requests and API integrations
+requests>=2.31.0
+httpx>=0.25.0
+
+# Image processing
+Pillow>=10.0.0
+
+# Async support
+asyncio-mqtt>=0.13.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+
+# Logging and monitoring
+structlog>=23.2.0
+
+# Development and testing (optional)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Security
+cryptography>=41.0.0
+
+# JSON processing
+orjson>=3.9.0
+
+# Date and time handling
+python-dateutil>=2.8.0
+
+# UUID generation
+uuid>=1.30 

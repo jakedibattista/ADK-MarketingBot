@@ -1,0 +1,52 @@
+# Build and Deploy the Cloud Run Service and Firebase Frontend
+steps:
+  # 1. Build the container image for the Cloud Run service
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/${_PROJECT_ID}/${_SERVICE_NAME}:latest', '.']
+    id: 'Build Docker Image'
+
+  # 2. Push the container image to Google Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/${_PROJECT_ID}/${_SERVICE_NAME}:latest']
+    id: 'Push to Artifact Registry'
+
+  # 3. Deploy the container image to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image=gcr.io/${_PROJECT_ID}/${_SERVICE_NAME}:latest'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-secrets=GROK_API_KEY=GROK_API_KEY:latest'
+    id: 'Deploy to Cloud Run'
+
+  # 4. Deploy the frontend to Firebase Hosting
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        npm install -g firebase-tools && \
+        cd frontend && \
+        firebase deploy --only hosting --project ${_PROJECT_ID} --token "$$FIREBASE_CI_TOKEN" --non-interactive
+    id: 'Deploy Frontend'
+    secretEnv: ['FIREBASE_CI_TOKEN']
+
+# Available secrets to be used in the build
+availableSecrets:
+  secretManager:
+  - versionName: projects/${_PROJECT_ID}/secrets/FIREBASE_CI_TOKEN/versions/latest
+    env: 'FIREBASE_CI_TOKEN'
+
+# Define substitutions for Cloud Build
+substitutions:
+  _PROJECT_ID: 'adkchl'
+  _SERVICE_NAME: 'adk-marketing-platform'
+  _REGION: 'us-central1'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
