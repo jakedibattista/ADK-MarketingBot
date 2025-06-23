@@ -20,8 +20,7 @@ except ImportError:
 def grok_creative_assistant(
     research_report: str,
     goals_audience: str,
-    company_name: str,
-    grok_api_key: str  # API key passed as an argument
+    company_name: str
 ) -> Dict[str, Any]:
     """
     Use Grok API to generate creative campaign ideas based on research.
@@ -30,17 +29,25 @@ def grok_creative_assistant(
         research_report: Research insights from Research Specialist
         goals_audience: Campaign goals and target audience
         company_name: Name of the company
-        grok_api_key: The API key for the Grok service.
         
     Returns:
         Dict containing 2 creative campaign ideas from Grok
     """
     
     try:
+        print("🔍 DEBUG: Starting Grok API call...")
+        
+        # Get API key from environment
+        grok_api_key = os.getenv('GROK_API_KEY')
+        print(f"🔑 DEBUG: GROK_API_KEY loaded: {grok_api_key[:15] if grok_api_key else 'None'}...")
+        print(f"📏 DEBUG: API key length: {len(grok_api_key) if grok_api_key else 0}")
+        
         if not grok_api_key:
             # Fallback to mock data if no API key is provided
-            print("Grok API key not provided, using mock data.")
+            print("❌ DEBUG: Grok API key not provided, using mock data.")
             return _generate_mock_ideas(research_report, goals_audience, company_name)
+        
+        print("✅ DEBUG: API key found, proceeding with Grok API call...")
         
         # Prepare the prompt for Grok
         grok_prompt = f"""
@@ -85,6 +92,7 @@ def grok_creative_assistant(
         """
         
         # Make API call to Grok
+        print("🌐 DEBUG: Making Grok API request...")
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {grok_api_key}"
@@ -109,9 +117,13 @@ def grok_creative_assistant(
             timeout=30
         )
         
+        print(f"📡 DEBUG: Grok API response status: {response.status_code}")
+        
         if response.status_code == 200:
+            print("✅ DEBUG: Grok API call successful!")
             grok_response = response.json()
             content = grok_response.get('choices', [{}])[0].get('message', {}).get('content', '')
+            print(f"📝 DEBUG: Grok response length: {len(content)} chars")
             
             # Try to parse JSON from Grok's response
             try:
@@ -143,11 +155,15 @@ def grok_creative_assistant(
                 return _generate_mock_ideas(research_report, goals_audience, company_name)
         
         else:
-            print(f"Grok API error: {response.status_code} - {response.text}")
+            print(f"❌ DEBUG: Grok API error: {response.status_code} - {response.text}")
+            print("🔄 DEBUG: Falling back to mock data due to API error")
             return _generate_mock_ideas(research_report, goals_audience, company_name)
             
     except Exception as e:
-        print(f"Grok API call failed: {e}")
+        print(f"💥 DEBUG: Grok API call failed with exception: {e}")
+        print("🔄 DEBUG: Falling back to mock data due to exception")
+        import traceback
+        traceback.print_exc()
         return _generate_mock_ideas(research_report, goals_audience, company_name)
 
 def _generate_mock_ideas(research_report: str, goals_audience: str, company_name: str) -> Dict[str, Any]:

@@ -72,8 +72,13 @@ def generate_veo_video_simple(script: str) -> Dict[str, Any]:
             if hasattr(operation, 'response') and operation.response:
                 if hasattr(operation.response, 'generated_videos'):
                     videos = operation.response.generated_videos
-                    result["video_count"] = len(videos)
-                    result["videos"] = []
+                    if videos is not None:
+                        result["video_count"] = len(videos)
+                        result["videos"] = []
+                    else:
+                        result["video_count"] = 0
+                        result["videos"] = []
+                        videos = []
                     
                     for i, video in enumerate(videos):
                         video_info = {
@@ -105,7 +110,15 @@ def generate_veo_video_simple(script: str) -> Dict[str, Any]:
                     if result.get("video_url"):
                         print(f"Video URL: {result['video_url']}")
                 else:
+                    # No generated_videos attribute
+                    result["video_count"] = 0
+                    result["videos"] = []
                     result["response_details"] = str(operation.response)
+            else:
+                # No response or response is None
+                result["video_count"] = 0
+                result["videos"] = []
+                result["response_details"] = "No response from operation"
             
             return result
             

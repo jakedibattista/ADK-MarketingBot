@@ -126,10 +126,19 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     
     <!-- Firebase Configuration -->
-    <script src="/__/firebase/init.js"></script>
     <script>
-        // Initialize Firebase with auto-loaded config
-        firebase.initializeApp();
+        // Firebase config for local development
+        const firebaseConfig = {
+            apiKey: "AIzaSyCFZkSE50Zh9kzioNE1RfWfNO4gGUkqs7I",
+            authDomain: "adkchl.firebaseapp.com",
+            projectId: "adkchl",
+            storageBucket: "adkchl.firebasestorage.app",
+            messagingSenderId: "661519955445",
+            appId: "1:661519955445:web:86bb0f5aee5b2221019cbc"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
     </script>
     
     <!-- Main Application Script -->

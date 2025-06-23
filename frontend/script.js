@@ -558,27 +558,41 @@ class MarketingApp {
     }
 
     async selectVisualConcept(conceptNumber, conceptDescription, imageUrl) {
-        this.showNotification(`✅ Selected Visual Concept ${conceptNumber}! Generating script and video...`, 'success');
+        this.showNotification(`✅ Selected Visual Concept ${conceptNumber}! Generating professional script...`, 'success');
         this.selectedVisualConcept = { 
             number: conceptNumber, 
             description: conceptDescription, 
             imageUrl: imageUrl 
         };
         
-                try {
-            // Create a simple, focused Veo script directly from campaign data
-            this.showNotification('📝 Creating campaign-specific video script...', 'info');
+        try {
+            // Step 1: Generate professional script using Script Writer Agent
+            this.showNotification('📝 Creating cinematic video script with Script Writer Agent...', 'info');
             
-            // Generate script directly from campaign and visual concept
-            var campaignScript = `${this.selectedCampaign.content}. Visual concept: ${conceptDescription}. Company: ${this.campaignData.companyName}. Create a professional 8-second marketing video showing the campaign concept in action. NO visible text, words, letters, or typography to avoid spelling errors. Focus on visual storytelling with natural brand integration.`;
+            var scriptResponse = await fetch(this.serviceUrl + '/generate-script', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    campaign_content: this.selectedCampaign.content,
+                    visual_concept: conceptDescription,
+                    company_name: this.campaignData.companyName
+                })
+            });
             
-            console.log('Generated campaign script:', campaignScript);
+            if (!scriptResponse.ok) {
+                throw new Error(`Script generation failed: ${scriptResponse.status}`);
+            }
             
-            // Display the script
+            var scriptData = await scriptResponse.json();
+            var campaignScript = scriptData.script;
+            
+            console.log('Generated professional script:', campaignScript);
+            
+            // Display the professional script
             this.displayScriptGeneration(campaignScript);
             
-            // Step 2: Generate video using direct Veo endpoint
-            this.showNotification('🎬 Generating video with Veo 2.0...', 'info');
+            // Step 2: Generate video using the professional script
+            this.showNotification('🎬 Generating video with professional script...', 'info');
             
             var videoResponse = await fetch(this.serviceUrl + '/generate-video-direct', {
                 method: 'POST',
@@ -616,12 +630,15 @@ class MarketingApp {
             console.error('Video generation failed:', error);
             this.showNotification(`❌ Video generation failed: ${error.message}`, 'error');
             
+            // Fallback to basic script if Script Writer Agent fails
+            var fallbackScript = `${this.selectedCampaign.content}. Visual concept: ${conceptDescription}. Company: ${this.campaignData.companyName}. Create a professional 8-second marketing video showing the campaign concept in action. NO visible text, words, letters, or typography to avoid spelling errors. Focus on visual storytelling with natural brand integration.`;
+            
             // Still show the script even if video generation failed
             this.displayVideoResult({
                 success: false,
                 error: error.message,
                 error_type: 'Generation Failed'
-            }, campaignScript || 'Script generation failed');
+            }, fallbackScript);
         }
     }
 

@@ -5,6 +5,11 @@ Receives requests from the Firebase frontend and orchestrates the 6-agent workfl
 
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -28,12 +33,15 @@ app = FastAPI(
 )
 
 # --- CORS Configuration ---
-# Allow requests from the Firebase frontend
+# Allow requests from the Firebase frontend and local development
 origins = [
     "https://adkchl.web.app",
     "http://localhost",
+    "http://localhost:3000",
     "http://localhost:8000",
+    "http://127.0.0.1:3000",
     "http://127.0.0.1:8000",
+    "*"  # Allow all origins for local development
 ]
 
 app.add_middleware(

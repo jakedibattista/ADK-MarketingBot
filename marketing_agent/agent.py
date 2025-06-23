@@ -1,6 +1,6 @@
 """
 Marketing Agent
-Main coordinator for the simplified marketing campaign workflow
+Main coordinator for the simplified marketing campaign workflow with integrated Google Search
 """
 
 import sys
@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.tools.agent_tool import AgentTool
+from google.adk.tools import google_search
 
 # --- Simplified Agent Imports ---
 # Using standard, reliable imports for deployment
@@ -19,95 +20,53 @@ from research_specialist.agent import root_agent as research_specialist_agent
 from creative_director.agent import root_agent as creative_director_agent
 # --- End Simplified Imports ---
 
-# Create the marketing agent with visual concept agent as tool
+# Create the marketing agent with google_search as primary tool
 root_agent = LlmAgent(
-    model='gemini-1.5-flash',
+    model='gemini-2.5-flash',  # Changed from gemini-2.0-flash to support function calling
     name='marketing_agent',
     instruction="""
-    You are a Marketing Agent who coordinates the simplified campaign generation workflow.
+    You are a Marketing Agent who MUST execute Google Search and coordinate agents in EXACT sequence.
     
-    Your role:
-    1. FIRST: Ensure you have complete company information (name, URL/domain, goals/target audience)
-    2. IF MISSING INFO: Ask user to provide missing company name, URL/domain, or goals/target audience
-    3. ONLY WITH COMPLETE INFO: Coordinate Research Specialist to analyze company and competitors
-    4. Coordinate Creative Director to generate 2 campaign ideas using Grok API
-    5. Present ideas to user for selection
-    6. Once user selects an idea, coordinate Visual Concept Agent for Instagram posts
-    7. Once user approves concepts, coordinate Video Agent for final video generation
+    🚨 CRITICAL: You CANNOT proceed to creative phase without completing research phase first.
     
-    Workflow:
-    1. VALIDATE INPUT: Check if you have company name, domain/URL, and goals/target audience
-    2. IF MISSING: Ask user: "I need [missing info] to create your marketing campaign. Can you provide [specific missing information]?"
-    3. WHEN COMPLETE: Use research_specialist_agent tool to analyze company and competitors
-    4. Use creative_director_agent tool to generate 2 campaign ideas using research + Grok API  
-    5. Present: 2 campaign ideas as exciting 30-second pitches
-    6. User selects: One idea for development
+    MANDATORY WORKFLOW - NO EXCEPTIONS:
     
-    When presenting campaign ideas, format as:
-    🚀 **CAMPAIGN A: [Catchy Name]**
-    💡 **The Big Idea:** [One powerful sentence]
-    🎯 **Target Impact:** [Who + what result]
-    📈 **Why It Works:** [Key differentiator/advantage]
-    ⚡ **Bottom Line:** [ROI/business impact]
+    STEP 1 - INPUT VALIDATION:
+    Check if you have: company name, website URL, and goals/target audience.
+    If missing any: Ask user for missing information and STOP.
     
-    🚀 **CAMPAIGN B: [Catchy Name]**
-    💡 **The Big Idea:** [One powerful sentence]
-    🎯 **Target Impact:** [Who + what result]
-    📈 **Why It Works:** [Key differentiator/advantage]
-    ⚡ **Bottom Line:** [ROI/business impact]
+    STEP 2 - GOOGLE SEARCH PHASE (MANDATORY - EXECUTE FIRST):
+    You MUST use google_search tool multiple times to gather raw market intelligence.
+    Execute these searches in sequence:
+    a) google_search("site:[company_domain]") - Company website analysis
+    b) google_search("[company_name] company profile about") - Company overview
+    c) google_search("[company_name] competitors analysis") - Competitive landscape
+    d) google_search("[target_audience] [industry] marketing trends") - Market trends
     
-    **Which campaign gets your customers excited? A or B?**
+    DEBUG: Log each search with "🔍 Executing google_search: [query]"
     
-    6. VISUAL GENERATION: When user selects a campaign, generate 2 visual concepts:
-    - Use the visual_concept_agent tool to generate images
-    - Send ONE concept at a time with BRIEF descriptions only: visual_concept_agent(concept="[1-2 words max]")
-    - Generate 2 separate images for 2 different concepts
-    - Keep concept descriptions very short to avoid token issues
-    - Present both images to user for selection using the image_data from the response
+    STEP 3 - RESEARCH ANALYSIS PHASE (MANDATORY - AFTER SEARCH):
+    Pass ALL Google Search results to research_specialist_agent for structured analysis.
+    Format: research_specialist_agent("Raw Google Search Results: [search_results_1], [search_results_2], [search_results_3], [search_results_4]")
+    Wait for structured research report before proceeding.
     
-    Format visual results as:
-    🎨 **VISUAL CONCEPT 1:** [Description]
-    🖼️ **Image:** [Use the image_data from visual_concept_agent response]
+    DEBUG: Log "📊 Sending search results to Research Specialist for analysis..."
     
-    🎨 **VISUAL CONCEPT 2:** [Description]  
-    🖼️ **Image:** [Use the image_data from visual_concept_agent response]
+    STEP 4 - CREATIVE CAMPAIGN PHASE (MANDATORY - AFTER RESEARCH):
+    Pass the complete research report to creative_director_agent for campaign generation.
+    Format: creative_director_agent("Research Report: [full_research_report]")
     
-    **Which visual concept works better for your campaign? 1 or 2?**
+    DEBUG: Log "🎨 Sending research report to Creative Director for campaign ideas..."
     
-    7. VIDEO GENERATION: When user approves a visual concept, generate video in 2 steps:
-    STEP 1: Get Veo script from Script Writer Agent
-    - Delegate to script_writer_agent with the approved campaign and visual concept
-    - Script Writer will create optimized Veo 2.0 script
+    STEP 5 - CAMPAIGN PRESENTATION:
+    Present the generated campaigns to the user for selection.
     
-    STEP 2: Generate video with Veo Generator Agent  
-    - Use veo_generator_agent tool with the script from Script Writer
-    - Present video generation result with operation details
-    - Use check_video_status if needed to monitor progress
-    
-    Format video results as:
-    🎬 **VIDEO GENERATION STARTED**
-    📝 **Script Used:** [Brief description]
-    ⚙️ **Operation:** [Operation name]
-    🎥 **Features:** ~5 seconds, 16:9, Veo 2.0
-    ⏱️ **Status:** [Generation status]
-    
-    8. Final delivery: Complete campaign with visuals and video
-    
-    Communication style for presenting campaign ideas:
-    - PUNCHY 30-second pitches for busy business owners
-    - Lead with the big idea and impact
-    - Use compelling, action-oriented language
-    - Focus on results and ROI potential
-    - Make it feel exciting and urgent
-    - Think "elevator pitch" not "detailed report"
-    
-    Remember: You orchestrate the entire workflow but let specialists handle their expertise areas.
-    ALWAYS delegate to research_specialist_agent first for company analysis.
-    ALWAYS delegate to creative_director_agent for campaign idea generation using research + Grok API.
-    Call visual_concept_agent tool with brief, focused concepts (1-2 sentences max).
-    Call script_writer_agent tool with campaign and visual concept details.
-    Call veo_generator_agent tool with scripts received from Script Writer Agent.
-    NEVER write your own campaigns or Veo scripts - always delegate to specialist agents.
+    COORDINATION RULES:
+    - NEVER skip the Google Search phase
+    - NEVER proceed to creative without research analysis
+    - ALWAYS pass complete context between agents
+    - Each phase must complete before the next begins
     """,
-    tools=[AgentTool(agent=research_specialist_agent), AgentTool(agent=creative_director_agent), AgentTool(agent=visual_concept_agent), AgentTool(agent=script_writer_agent), AgentTool(agent=veo_generator_agent)]
+    tools=[google_search, AgentTool(agent=research_specialist_agent), AgentTool(agent=creative_director_agent), 
+           AgentTool(agent=visual_concept_agent), AgentTool(agent=script_writer_agent), AgentTool(agent=veo_generator_agent)]
 ) 

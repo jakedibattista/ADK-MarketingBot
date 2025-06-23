@@ -6,9 +6,9 @@
 ```
 Firebase Frontend ──────► Cloud Run Service ──────► ADK Multi-Agent System
      ↓                         ↓                           ↓
- Authentication           FastAPI Service              - Marketing Coordinator
- User Interface           Agent Orchestration          - Research Specialist  
- Campaign Forms           /query endpoint              - Creative Director
+ Authentication           FastAPI Service              - Marketing Coordinator (Google Search)
+ User Interface           Agent Orchestration          - Research Analyst (Intelligence) 
+ Campaign Forms           /query endpoint              - Creative Director (Grok API)
                                                       - Script Writer Agent
                                                       - Veo Generator Agent
                                                       - Visual Concept Agent
@@ -18,6 +18,8 @@ Firebase Frontend ──────► Cloud Run Service ──────► 
 - ✅ **ADK-Powered Agents** - All agents built with Google's Agent Development Kit
 - ✅ **Cloud Run Deployment** - Scalable containerized FastAPI service
 - ✅ **Agent Coordination** - Marketing Agent orchestrates specialist agents
+- ✅ **Google Search Integration** - Marketing Agent uses built-in google_search tool
+- ✅ **Research Analysis** - Research Specialist analyzes search results
 - ✅ **Veo 2.0 Integration** - Video generation using Veo 2.0 model
 - ✅ **Real API Integrations** - Google Search, Grok API, Imagen, Veo
 
@@ -50,33 +52,71 @@ Firebase Frontend ──────► Cloud Run Service ──────► 
 ```python
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.tools.agent_tool import AgentTool
+from google.adk.tools import google_search
 
-# Create ADK agent
+# Marketing Agent with Google Search - MUST use Gemini 2.5 Flash
 root_agent = LlmAgent(
-    model='gemini-1.5-flash',
-    name='agent_name',
+    model='gemini-2.5-flash',  # CRITICAL: Gemini 2.0 Flash does NOT support function calling
+    name='marketing_agent',
     instruction="""
-    Clear, specific instructions for agent behavior.
-    Define role, responsibilities, and coordination patterns.
+    Coordinate workflow and perform Google Search for market intelligence.
+    1. Execute multiple google_search queries
+    2. Pass results to research_specialist_agent for analysis
+    3. Pass structured report to creative_director_agent for campaigns
     """,
-    tools=[AgentTool(agent=other_agent), ...]
+    tools=[google_search, AgentTool(agent=research_specialist_agent), ...]
+)
+
+# Research Specialist as Analyst
+research_agent = LlmAgent(
+    model='gemini-1.5-flash',  # Cheaper model for analysis
+    name='research_specialist',
+    instruction="""
+    Transform raw Google Search results into structured marketing intelligence.
+    """,
+    tools=[]  # No tools needed for analysis
+)
+
+# Creative Director with Grok API
+creative_agent = LlmAgent(
+    model='gemini-1.5-flash',  # Standard model for creative work
+    name='creative_director',
+    instruction="""
+    Generate innovative campaigns using Grok API based on research insights.
+    """,
+    tools=[grok_creative_assistant]
 )
 ```
 
+#### **🚨 CRITICAL MODEL COMPATIBILITY**
+
+**Function Calling Support:**
+- ✅ **Gemini 2.5 Flash**: Full function calling support
+- ✅ **Gemini 1.5 Flash**: Full function calling support  
+- ❌ **Gemini 2.0 Flash**: NO function calling support (ADK limitation)
+
+**Error Message:**
+```
+400 INVALID_ARGUMENT: Tool use with function calling is unsupported
+```
+
+**Solution:** Always use Gemini 2.5 Flash for agents with tools.
+
 #### **Agent Coordination**
 ```python
-# Marketing Agent coordinates other agents
+# Marketing Agent coordinates workflow and performs Google Search
 from marketing_agent.agent import root_agent as marketing_agent
 from research_specialist.agent import root_agent as research_specialist_agent
 from creative_director.agent import root_agent as creative_director_agent
 
-# Tools for agent coordination
+# Workflow: Marketing (Search) → Research (Analysis) → Creative (Grok)
 tools=[
-    AgentTool(agent=research_specialist_agent),
-    AgentTool(agent=creative_director_agent),
-    AgentTool(agent=visual_concept_agent),
-    AgentTool(agent=script_writer_agent),
-    AgentTool(agent=veo_generator_agent)
+    google_search,  # Built-in ADK tool for market intelligence
+    AgentTool(agent=research_specialist_agent),  # Search result analysis
+    AgentTool(agent=creative_director_agent),    # Campaign generation
+    AgentTool(agent=visual_concept_agent),       # Visual creation
+    AgentTool(agent=script_writer_agent),        # Video scripts
+    AgentTool(agent=veo_generator_agent)         # Video generation
 ]
 ```
 
@@ -182,11 +222,11 @@ ADk hackathon/
 ├── service/
 │   └── main.py                   # FastAPI + ADK integration
 ├── marketing_agent/
-│   └── agent.py                  # Root coordinator (LlmAgent)
+│   └── agent.py                  # Root coordinator with Google Search (Gemini 2.0)
 ├── research_specialist/
-│   └── agent.py                  # Google Search agent
+│   └── agent.py                  # Search result analyst (Gemini 1.5)
 ├── creative_director/
-│   ├── agent.py                  # Grok API agent
+│   ├── agent.py                  # Grok API agent for campaigns
 │   └── tools.py                  # Grok integration
 ├── visual_concept_agent/
 │   └── agent.py                  # Image generation
