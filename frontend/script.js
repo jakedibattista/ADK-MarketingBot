@@ -296,23 +296,34 @@ class MarketingApp {
         this.showNotification('🚀 Starting complete marketing campaign generation...', 'info');
         
         try {
-            var campaignRequest = `Company: ${this.campaignData.companyName}\nWebsite: ${this.campaignData.companyDomain}\nGoals/Target Audience: ${this.campaignData.goalsAudience}\n\nPlease generate a complete marketing campaign following the full workflow.`;
-
             var response = await fetch(this.serviceUrl + '/query', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    query: campaignRequest
+                    company: this.campaignData.companyName,
+                    website: this.campaignData.companyDomain,
+                    goals: this.campaignData.goalsAudience,
+                    target_audience: this.campaignData.goalsAudience
                 })
             });
             
             if (response.ok) {
                 var data = await response.json();
-                this.processAgentResponse(data.response);
+                console.log('🔍 Backend response data:', data);
+                console.log('🔍 Backend response keys:', Object.keys(data));
+                console.log('🔍 Backend campaign_concepts field:', data.campaign_concepts);
+                console.log('🔍 Backend response field (legacy):', data.response);
+                
+                // Use campaign_concepts field from hybrid workflow, fallback to response for legacy
+                var campaignContent = data.campaign_concepts || data.response;
+                console.log('🔍 Selected campaign content:', campaignContent ? 'Found' : 'Not found');
+                console.log('🔍 Campaign content length:', campaignContent ? campaignContent.length : 'null/undefined');
+                this.processAgentResponse(campaignContent);
             } else {
                 var errorText = await response.text();
+                console.error('❌ Backend error:', errorText);
                 throw new Error(`Cloud Run API call failed: ${errorText}`);
             }
         } catch (error) {
@@ -325,29 +336,183 @@ class MarketingApp {
     processAgentResponse(content) {
         this.showNotification('✅ Agent workflow complete! Processing results...', 'success');
         
-        if (content.includes('CAMPAIGN A:')) {
-            this.processCampaignIdeas(content);
+        console.log('🔍 processAgentResponse called with content:', content ? 'Content received' : 'No content');
+        console.log('🔍 Content type:', typeof content);
+        console.log('🔍 Content length:', content ? content.length : 'null/undefined');
+        console.log('🔍 First 200 chars:', content ? content.substring(0, 200) : 'No content');
+        
+        // Additional debugging - save content to window for inspection
+        window.lastBackendResponse = content;
+        console.log('🔍 Backend response saved to window.lastBackendResponse for inspection');
+        
+        if (!content) {
+            console.error('❌ No content received from backend in processAgentResponse');
+            this.showNotification('❌ No content received from backend', 'error');
+            return;
         }
-        if (content.includes('VISUAL CONCEPT')) {
-            this.processVisualConcepts(content);
+        
+        // Parse the content
+        try {
+            console.log('✅ Content found, calling displaySimpleCampaigns...');
+            this.displaySimpleCampaigns(content);
+        } catch (error) {
+            console.error('❌ Failed to parse campaigns:', error);
+            this.showNotification(`❌ Failed to parse campaigns: ${error.message}`, 'error');
         }
-        if (content.includes('VIDEO GENERATION')) {
-            this.processVideoGeneration(content);
+    }
+
+    displaySimpleCampaigns(content) {
+        console.log('🔍 Displaying campaigns from content length:', content ? content.length : 'undefined');
+        console.log('🔍 First 500 chars of content:', content ? content.substring(0, 500) : 'No content');
+        
+        if (!content) {
+            console.error('❌ No content received from backend');
+            this.showNotification('❌ No content received from backend', 'error');
+            return;
         }
+        
+        // Parse the exact backend format: 🚀 **CAMPAIGN A: Title - *Tagline***
+        var campaignA = '';
+        var campaignB = '';
+        
+        // Look for the exact format from the backend response
+        var campaignAMatch = content.match(/🚀 \*\*CAMPAIGN A:(.*?)(?=🚀 \*\*CAMPAIGN B:|🎯 CAMPAIGN PRESENTATIONS COMPLETE|$)/s);
+        var campaignBMatch = content.match(/🚀 \*\*CAMPAIGN B:(.*?)(?=🎯 CAMPAIGN PRESENTATIONS COMPLETE|$)/s);
+        
+        console.log('🔍 Campaign A match:', campaignAMatch ? 'Found' : 'Not found');
+        console.log('🔍 Campaign B match:', campaignBMatch ? 'Found' : 'Not found');
+        
+        if (campaignAMatch) {
+            campaignA = '🚀 **CAMPAIGN A:' + campaignAMatch[1].trim();
+            console.log('✅ Campaign A extracted:', campaignA.substring(0, 100) + '...');
+        }
+        if (campaignBMatch) {
+            campaignB = '🚀 **CAMPAIGN B:' + campaignBMatch[1].trim();
+            console.log('✅ Campaign B extracted:', campaignB.substring(0, 100) + '...');
+        }
+        
+        // If we found campaigns, render them
+        if (campaignA || campaignB) {
+            console.log('✅ Rendering campaigns from backend response');
+            this.renderCampaigns(campaignA, campaignB);
+        } else {
+            console.error('❌ No campaigns found in backend response');
+            this.showNotification('❌ Failed to parse campaigns from backend response', 'error');
+            
+            // Show the raw content for debugging
+            var ideasContainer = document.getElementById('ideas-container');
+            var ideasSection = document.getElementById('campaign-ideas');
+            
+            ideasContainer.innerHTML = `
+                <div class="idea-card">
+                    <h3>Raw Backend Response (Debug)</h3>
+                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 12px; background: #f5f5f5; padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto;">${content}</pre>
+                </div>
+            `;
+            ideasSection.style.display = 'block';
+        }
+    }
+    
+
+    
+    renderCampaigns(campaignA, campaignB) {
+        var ideasContainer = document.getElementById('ideas-container');
+        var ideasSection = document.getElementById('campaign-ideas');
+        
+        var ideasHTML = '';
+        
+        if (campaignA) {
+            var titleA = this.extractCampaignTitle(campaignA) || 'Campaign A';
+            // Remove the campaign header line to avoid duplication
+            var contentA = campaignA.replace(/🚀 \*\*CAMPAIGN A:[^\n]*\n/, '');
+            ideasHTML += `
+                <div class="idea-card">
+                    <h3>${titleA}</h3>
+                    <div class="campaign-content">
+                        <pre style="white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.5;">${contentA}</pre>
+                    </div>
+                    <button class="select-campaign-btn" data-campaign="A" data-campaign-index="0">
+                        🚀 Select Campaign A
+                    </button>
+                </div>
+            `;
+        }
+        
+        if (campaignB) {
+            var titleB = this.extractCampaignTitle(campaignB) || 'Campaign B';
+            // Remove the campaign header line to avoid duplication
+            var contentB = campaignB.replace(/🚀 \*\*CAMPAIGN B:[^\n]*\n/, '');
+            ideasHTML += `
+                <div class="idea-card">
+                    <h3>${titleB}</h3>
+                    <div class="campaign-content">
+                        <pre style="white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.5;">${contentB}</pre>
+                    </div>
+                    <button class="select-campaign-btn" data-campaign="B" data-campaign-index="1">
+                        🚀 Select Campaign B
+                    </button>
+                </div>
+            `;
+        }
+        
+        // Store campaigns for later use
+        this.storedCampaigns = { A: campaignA, B: campaignB };
+        
+        ideasContainer.innerHTML = ideasHTML;
+        ideasSection.style.display = 'block';
+        
+        // Add event listeners to campaign selection buttons
+        var campaignButtons = ideasContainer.querySelectorAll('.select-campaign-btn');
+        campaignButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                var campaignLetter = e.target.getAttribute('data-campaign');
+                var campaignContent = this.storedCampaigns[campaignLetter];
+                this.selectCampaign(campaignLetter, campaignContent);
+            });
+        });
+        
+        this.showNotification('✅ Campaigns displayed! Choose one to continue to visual concepts.', 'success');
+    }
+    
+    extractCampaignTitle(campaignText) {
+        var match = campaignText.match(/🚀 \*\*CAMPAIGN [AB]:\s*(.+?)\s*-\s*\*(.+?)\*\*\*/);
+        if (match) {
+            // Extract just the main title, not the tagline
+            return match[1].trim();
+        }
+        
+        // Fallback to simpler pattern
+        var simpleMatch = campaignText.match(/🚀 \*\*CAMPAIGN [AB]:\s*(.+?)\*\*/);
+        if (simpleMatch) {
+            var title = simpleMatch[1].trim();
+            // Remove tagline if it exists
+            if (title.includes(' - *')) {
+                title = title.split(' - *')[0];
+            }
+            return title;
+        }
+        
+        return campaignText.includes('CAMPAIGN A') ? 'Campaign A' : 'Campaign B';
     }
 
     processCampaignIdeas(content) {
         var ideasContainer = document.getElementById('ideas-container');
         var ideasSection = document.getElementById('campaign-ideas');
         
+        console.log('🔍 Processing campaign ideas from content length:', content.length);
+        
         var ideasHTML = '';
-        var campaignARegex = /🚀 \*\*CAMPAIGN A:([\s\S]*?)(?=🚀 \*\*CAMPAIGN B:|\n\n\n)/;
-        var campaignBRegex = /🚀 \*\*CAMPAIGN B:([\s\S]*)/;
+        var campaignARegex = /🚀 \*\*CAMPAIGN A:([\s\S]*?)(?=🚀 \*\*CAMPAIGN B:|$)/;
+        var campaignBRegex = /🚀 \*\*CAMPAIGN B:([\s\S]*?)(?=🎯 CAMPAIGN PRESENTATIONS COMPLETE|$)/;
 
         var matchA = content.match(campaignARegex);
         var matchB = content.match(campaignBRegex);
 
+        console.log('🔍 Campaign A match:', matchA ? 'Found' : 'Not found');
+        console.log('🔍 Campaign B match:', matchB ? 'Found' : 'Not found');
+        
         if (matchA) {
+            console.log('✅ Processing Campaign A:', matchA[0].substring(0, 100) + '...');
             var formattedA = this.formatCampaignContent(matchA[0]);
             ideasHTML += `
                 <div class="idea-card">
@@ -360,6 +525,7 @@ class MarketingApp {
             `;
         }
         if (matchB) {
+            console.log('✅ Processing Campaign B:', matchB[0].substring(0, 100) + '...');
             var formattedB = this.formatCampaignContent(matchB[0]);
             ideasHTML += `
                 <div class="idea-card">
@@ -435,22 +601,24 @@ class MarketingApp {
         try {
             var visualServiceUrl = this.serviceUrl + '/generate-visual';
             
-            // Generate both concepts using AI with campaign content - make them distinctly different
+            // Generate both concepts using the correct API format
             var [response1, response2] = await Promise.all([
                 fetch(visualServiceUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        concept: "1 - Lifestyle/Aspirational Style: Focus on emotional connection, lifestyle moments, and aspirational imagery. Use warm, natural lighting and authentic human interactions.",
-                        campaign_content: campaignContent 
+                        campaign: "1 - Lifestyle/Aspirational Style: Focus on emotional connection, lifestyle moments, and aspirational imagery. Use warm, natural lighting and authentic human interactions.",
+                        campaign_content: campaignContent,
+                        target_audience: this.campaignData ? this.campaignData.goalsAudience : "families"
                     })
                 }),
                 fetch(visualServiceUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        concept: "2 - Bold/Dynamic Style: Focus on product features, bold graphics, vibrant colors, and energetic compositions. Use dramatic lighting and striking visual elements.", 
-                        campaign_content: campaignContent 
+                        campaign: "2 - Bold/Dynamic Style: Focus on product features, bold graphics, vibrant colors, and energetic compositions. Use dramatic lighting and striking visual elements.",
+                        campaign_content: campaignContent,
+                        target_audience: this.campaignData ? this.campaignData.goalsAudience : "families"
                     })
                 })
             ]);
@@ -478,18 +646,20 @@ class MarketingApp {
             console.log('Visual Concept 2 data:', data2);
             
             // Check if both concepts have the required data
-            if (!data1.caption || !data1.image_data) {
+            if (!data1.caption && !data1.visual_concept) {
                 console.error('Visual Concept 1 missing data:', data1);
                 throw new Error('Visual Concept 1 is missing required data');
             }
             
-            if (!data2.caption || !data2.image_data) {
+            if (!data2.caption && !data2.visual_concept) {
                 console.error('Visual Concept 2 missing data:', data2);
                 throw new Error('Visual Concept 2 is missing required data');
             }
             
-            // Display using AI-generated captions
-            this.displayVisualConcepts(data1, data2, data1.caption, data2.caption);
+            // Display using AI-generated visual descriptions and captions
+            var description1 = data1.visual_description || data1.caption || 'Visual Concept 1';
+            var description2 = data2.visual_description || data2.caption || 'Visual Concept 2';
+            this.displayVisualConcepts(data1, data2, description1, description2);
         } catch (error) {
             console.error('Visual concept generation failed:', error);
             this.showNotification(`❌ Visual generation failed: ${error.message}`, 'error');
@@ -500,20 +670,24 @@ class MarketingApp {
         var conceptsContainer = document.getElementById('concepts-container');
         var conceptsSection = document.getElementById('visual-concepts');
         
+        // Handle different image data formats - use visual_concept field for base64 images
+        var image1 = data1.visual_concept || data1.image_data || data1.image_url || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNvbmNlcHQgMTwvdGV4dD48L3N2Zz4=';
+        var image2 = data2.visual_concept || data2.image_data || data2.image_url || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkNvbmNlcHQgMjwvdGV4dD48L3N2Zz4=';
+        
         var conceptsHTML = `
             <div class="concept-card">
                 <h3>VISUAL CONCEPT 1</h3>
-                <div class="concept-image"><img src="${data1.image_data}" alt="Visual Concept 1"></div>
+                <div class="concept-image"><img src="${image1}" alt="Visual Concept 1"></div>
                 <p class="concept-description" style="font-style: italic; color: #666; line-height: 1.4; font-size: 14px;">${concept1}</p>
-                <button class="select-concept-btn" onclick="window.marketingApp.selectVisualConcept('1', \`${concept1.replace(/`/g, '\\`')}\`, '${data1.image_data}')">
+                <button class="select-concept-btn" onclick="window.marketingApp.selectVisualConcept('1', \`${concept1.replace(/`/g, '\\`')}\`, '${image1}')">
                     🎨 Select Concept 1
                 </button>
             </div>
             <div class="concept-card">
                 <h3>VISUAL CONCEPT 2</h3>
-                <div class="concept-image"><img src="${data2.image_data}" alt="Visual Concept 2"></div>
+                <div class="concept-image"><img src="${image2}" alt="Visual Concept 2"></div>
                 <p class="concept-description" style="font-style: italic; color: #666; line-height: 1.4; font-size: 14px;">${concept2}</p>
-                <button class="select-concept-btn" onclick="window.marketingApp.selectVisualConcept('2', \`${concept2.replace(/`/g, '\\`')}\`, '${data2.image_data}')">
+                <button class="select-concept-btn" onclick="window.marketingApp.selectVisualConcept('2', \`${concept2.replace(/`/g, '\\`')}\`, '${image2}')">
                     🎨 Select Concept 2
                 </button>
             </div>

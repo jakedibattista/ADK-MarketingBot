@@ -1,175 +1,440 @@
 """
-ADK Marketing Platform - Cloud Run Service
-Receives requests from the Firebase frontend and orchestrates the 6-agent workflow.
+ADK Marketing Platform - Hybrid Architecture Service
+FastAPI service with specialized agent endpoints for research and creative development
 """
 
+import asyncio
+import json
+import logging
 import os
-import sys
-from dotenv import load_dotenv
+import uuid
+from datetime import datetime
+from typing import Dict, Any, List, Optional
 
-# Load environment variables from .env file
-load_dotenv()
-
-from fastapi import FastAPI, HTTPException
+import uvicorn
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import ADK components
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
-import asyncio
 
-# Add project root to the Python path
+# Add parent directory to path for imports
+import sys
+import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import the main marketing agent
-from marketing_agent.agent import root_agent
+# Import ADK multi-agent coordinator and individual agents
+from marketing_agent.campaign_coordinator import root_agent as campaign_coordinator  # Main coordinator
+from marketing_agent.campaign_coordinator import campaign_pipeline  # Sequential pipeline
+from marketing_agent.agent import root_agent as marketing_agent  # Google Search agent
+from research_specialist.agent import root_agent as research_specialist_agent  # Analysis agent
+from creative_director.agent import root_agent as creative_director_agent
+from visual_concept_agent.agent import visual_concept_agent
+from script_writer_agent.agent import root_agent as script_writer_agent
+from veo_generator_agent.agent import root_agent as veo_generator_agent
+
+# Request/Response Models
+class MarketingRequest(BaseModel):
+    company: str
+    website: str
+    goals: str
+    target_audience: str
+
+class ResearchRequest(BaseModel):
+    company: str
+    website: str
+    goals: str
+    target_audience: str
+
+class CreativeRequest(BaseModel):
+    research_report: str
+    company: str
+    goals: str
+    target_audience: str
+
+class HybridCampaignRequest(BaseModel):
+    company: str
+    website: str
+    goals: str
+    target_audience: str
+
+class VisualConceptRequest(BaseModel):
+    campaign: str
+    campaign_content: Optional[str] = None
+    brand_style: Optional[str] = None
+    target_audience: str
+
+class VisualConceptResponse(BaseModel):
+    success: bool
+    visual_concept: str
+    session_id: str
+    timestamp: str
+    caption: Optional[str] = None
+    visual_description: Optional[str] = None
+    filename: Optional[str] = None
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="ADK Marketing Platform API",
-    description="API for orchestrating the multi-agent marketing campaign workflow.",
-    version="1.0.0",
+    title="ADK Marketing Platform - Hybrid Architecture",
+    description="Specialized agent endpoints for research and creative development",
+    version="2.0.0"
 )
 
-# --- CORS Configuration ---
-# Allow requests from the Firebase frontend and local development
-origins = [
-    "https://adkchl.web.app",
-    "http://localhost",
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8000",
-    "*"  # Allow all origins for local development
-]
-
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Request and Response Models ---
-class QueryRequest(BaseModel):
-    query: str
+# Add validation error handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"🚨 VALIDATION ERROR on {request.method} {request.url.path}")
+    print(f"Request body: {await request.body()}")
+    print(f"Validation errors: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": str(await request.body())}
+    )
 
-class QueryResponse(BaseModel):
-    response: str
+# Initialize ADK components for each agent
+APP_NAME = "adk_marketing_platform_hybrid"
+USER_ID = "marketing_user"
 
-class VisualConceptRequest(BaseModel):
-    concept: str
-    campaign_content: str = None  # Add campaign content field
+# ADK Multi-Agent Coordinator Setup (NEW - Proper ADK Pattern)
+coordinator_session_service = InMemorySessionService()
+coordinator_runner = Runner(agent=campaign_coordinator, app_name=f"{APP_NAME}_coordinator", session_service=coordinator_session_service)
 
-class VisualConceptResponse(BaseModel):
-    success: bool
-    image_data: str = None
-    filename: str = None
-    concept: str = None
-    caption: str = None  # Add caption field
-    visual_description: str = None  # Add visual description field
-    error: str = None
+# Sequential Pipeline Setup (Alternative ADK Pattern)
+pipeline_session_service = InMemorySessionService()
+pipeline_runner = Runner(agent=campaign_pipeline, app_name=f"{APP_NAME}_pipeline", session_service=pipeline_session_service)
 
-# Create session service and runner
-session_service = InMemorySessionService()
-APP_NAME = "adk_marketing_platform"
-USER_ID = "api_user"
+# Individual Agent Setup (Legacy endpoints)
+# Marketing Agent Setup (Google Search)
+marketing_session_service = InMemorySessionService()
+marketing_runner = Runner(agent=marketing_agent, app_name=f"{APP_NAME}_marketing", session_service=marketing_session_service)
 
-# Create runner for the marketing agent
-runner = Runner(agent=root_agent, app_name=APP_NAME, session_service=session_service)
+# Research Specialist Setup (Analysis)
+analysis_session_service = InMemorySessionService()
+analysis_runner = Runner(agent=research_specialist_agent, app_name=f"{APP_NAME}_analysis", session_service=analysis_session_service)
 
-# --- API Endpoints ---
-@app.get("/", summary="Health Check")
-def read_root():
-    """Health check endpoint to confirm the service is running."""
-    return {"status": "ADK Marketing Platform API is running"}
+# Creative Director Setup  
+creative_session_service = InMemorySessionService()
+creative_runner = Runner(agent=creative_director_agent, app_name=f"{APP_NAME}_creative", session_service=creative_session_service)
 
-@app.post("/query", response_model=QueryResponse, summary="Query the Marketing Agent")
-async def query_agent(request: QueryRequest):
+# Other agents setup (existing)
+visual_session_service = InMemorySessionService()
+visual_runner = Runner(agent=visual_concept_agent, app_name=f"{APP_NAME}_visual", session_service=visual_session_service)
+
+script_session_service = InMemorySessionService()
+script_runner = Runner(agent=script_writer_agent, app_name=f"{APP_NAME}_script", session_service=script_session_service)
+
+veo_session_service = InMemorySessionService()
+veo_runner = Runner(agent=veo_generator_agent, app_name=f"{APP_NAME}_veo", session_service=veo_session_service)
+
+def format_campaign_concepts(grok_result: dict, company: str, target_audience: str) -> str:
     """
-    Receives a user query, passes it to the main marketing agent,
-    and returns the agent's final response.
+    Format Grok API response into nice campaign presentation layouts
     """
-    print(f"Received query: {request.query}")
     try:
-        # Create a session for this request
-        import uuid
-        session_id = str(uuid.uuid4())
+        campaign_ideas = grok_result.get('campaign_ideas', [])
+        if not campaign_ideas:
+            return "No campaign concepts generated. Please try again."
         
-        # Create session using await since it's async
+        formatted_output = f"""🎨 CREATIVE CAMPAIGN CONCEPTS FOR {company.upper()}
+
+🎯 **Target Audience:** {target_audience}
+📊 **Research Source:** {grok_result.get('source', 'Grok API')}
+⏰ **Generated:** {grok_result.get('generated_date', 'Now')}
+
+"""
+        
+        for i, idea in enumerate(campaign_ideas[:2], 1):  # Limit to 2 campaigns
+            formatted_output += f"""
+**CAMPAIGN {i}: {idea.get('title', 'Untitled Campaign')}**
+📢 **Tagline:** {idea.get('key_messages', [''])[0] if idea.get('key_messages') else 'Creative tagline needed'}
+🎯 **Target:** {idea.get('target_audience', target_audience)}
+💡 **Key Message:** {idea.get('description', 'Campaign description needed')}
+🏆 **Positioning:** {idea.get('approach', 'Strategic positioning needed')}
+🎨 **Visual Concept:** {idea.get('tone', 'Visual direction needed')} style with {', '.join(idea.get('channels', ['digital']))} focus
+📋 **Content Strategy:** {', '.join(idea.get('content_pillars', ['Brand awareness', 'Engagement', 'Conversion']))}
+📱 **Channel Mix:** {', '.join(idea.get('channels', ['Social Media', 'Digital Advertising']))}
+📈 **Success Metrics:** Engagement rate, conversion rate, brand awareness lift
+
+---
+"""
+        
+        formatted_output += f"""
+🔍 **RESEARCH INTEGRATION:**
+These campaigns leverage the comprehensive market research showing {company}'s competitive advantages and target audience insights. Each concept is designed to address specific pain points and motivations identified in the research phase.
+
+🎯 **NEXT STEPS:**
+1. Select preferred campaign concept
+2. Develop detailed creative brief
+3. Create visual mockups and content calendar
+4. Launch pilot campaign for testing
+
+📋 **CAMPAIGN DEVELOPMENT COMPLETE** - Ready for client selection and visual production
+"""
+        
+        return formatted_output
+        
+    except Exception as e:
+        print(f"❌ Campaign formatting error: {e}")
+        return f"Campaign formatting failed: {str(e)}\n\nRaw Grok Response:\n{str(grok_result)}"
+
+async def query_agent(runner, session_service, query: str, session_id: str = None):
+    """Generic function to query any agent"""
+    if session_id is None:
+        session_id = str(uuid.uuid4())
+    
+    try:
         session = await session_service.create_session(
-            app_name=APP_NAME, 
-            user_id=USER_ID, 
+            app_name=runner.app_name,
+            user_id=USER_ID,
             session_id=session_id
         )
         
-        # Create user content
-        user_content = types.Content(
-            role='user', 
-            parts=[types.Part(text=request.query)]
-        )
+        content = types.Content(role='user', parts=[types.Part(text=query)])
         
-        # Run the agent using the async runner
-        events = []
+        response_text = ""
         async for event in runner.run_async(
             user_id=USER_ID,
             session_id=session_id,
-            new_message=user_content
+            new_message=content
         ):
-            events.append(event)
-            # Debug logging
-            if hasattr(event, 'content') and event.content:
-                text_len = 0
-                if hasattr(event.content, 'parts') and event.content.parts and len(event.content.parts) > 0:
-                    text_len = len(event.content.parts[0].text) if event.content.parts[0].text else 0
+            if event.content and event.content.parts:
+                text_len = len(event.content.parts[0].text) if event.content.parts[0].text else 0
                 print(f"Event: {event.content.role} - {text_len} chars")
-        
-        # Extract the final response from events - collect all model responses
-        model_responses = []
-        for event in events:
-            if (hasattr(event, 'content') and event.content and 
-                hasattr(event.content, 'parts') and event.content.parts and 
-                len(event.content.parts) > 0 and event.content.parts[0] and
-                hasattr(event.content.parts[0], 'text')):
-                # Collect all agent responses
+                
                 if event.content.role == 'model':
-                    response_text = event.content.parts[0].text
-                    if response_text and response_text.strip():
-                        model_responses.append(response_text)
-                        print(f"Collected response: {response_text[:100]}...")
+                    if event.content.parts[0].text:
+                        response_text += event.content.parts[0].text
+                    else:
+                        print(f"⚠️ Warning: Empty text in model response part")
         
-        # Use the last non-empty response, or combine all responses
-        final_response = ""
-        if model_responses:
-            # For campaign generation, we want the marketing agent's final response
-            # which should contain the formatted campaigns
-            final_response = model_responses[-1]
-            
-            # If the last response is very short, it might be incomplete
-            # In that case, combine the responses
-            if len(final_response) < 100 and len(model_responses) > 1:
-                final_response = "\n\n".join(model_responses[-2:])
-        
-        # If still no response, try session messages as fallback
-        if not final_response:
-            try:
-                # Get all messages from session
-                session_messages = []
-                # Note: session_service.get_messages doesn't exist, so we'll skip this
-                print("No final response found in events, session fallback not available")
-            except Exception as session_error:
-                print(f"Could not retrieve session messages: {session_error}")
-        
-        print(f"Agent response: {final_response}")
-        return QueryResponse(response=final_response or "No response generated from agent")
+        return {"response": response_text, "session_id": session_id}
         
     except Exception as e:
-        print(f"An error occurred: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"An error occurred: {e}")
+        raise HTTPException(status_code=500, detail=f"Agent query failed: {str(e)}")
+
+@app.get("/")
+async def root():
+    return {
+        "message": "ADK Marketing Platform - Hybrid Architecture",
+        "version": "2.0.0",
+        "architecture": "Specialized agent endpoints",
+        "endpoints": {
+            "adk-campaign": "/adk-campaign - ADK Multi-Agent Coordinator (RECOMMENDED)",
+            "adk-pipeline": "/adk-pipeline - ADK Sequential Pipeline (ALTERNATIVE)",
+            "research": "/research - Market intelligence gathering (LEGACY)",
+            "creative": "/creative - Campaign development (LEGACY)",
+            "hybrid": "/hybrid-campaign - Complete workflow (LEGACY)",
+            "visual": "/generate-visual - Visual concept generation",
+            "script": "/generate-script - Script writing",
+            "video": "/generate-video-direct - Video generation"
+        }
+    }
+
+@app.post("/research")
+async def research_endpoint(request: ResearchRequest):
+    """Specialized endpoint for market research using Gemini knowledge base"""
+    print(f"Research request: {request.company} - {request.website}")
+    
+    query = f"""
+    Company: {request.company}
+    Website: {request.website}
+    Target Audience: {request.target_audience}
+    Goals: {request.goals}
+    
+    Please provide comprehensive market intelligence using your training knowledge.
+    """
+    
+    try:
+        result = await query_agent(marketing_runner, marketing_session_service, query)
+        return JSONResponse(content={
+            "success": True,
+            "research_report": result["response"],
+            "session_id": result["session_id"],
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Research endpoint error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/creative")
+async def creative_endpoint(request: CreativeRequest):
+    """Specialized endpoint for campaign development using Grok API"""
+    print(f"Creative request for: {request.company}")
+    
+    query = f"""
+    Research Intelligence Report:
+    {request.research_report}
+    
+    Company: {request.company}
+    Target Audience: {request.target_audience}
+    Goals: {request.goals}
+    
+    Based on this research intelligence, please develop 2 innovative campaign concepts.
+    """
+    
+    try:
+        result = await query_agent(creative_runner, creative_session_service, query)
+        return JSONResponse(content={
+            "success": True,
+            "campaign_concepts": result["response"],
+            "session_id": result["session_id"],
+            "timestamp": datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Creative endpoint error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/hybrid-campaign")
+async def hybrid_campaign_endpoint(request: HybridCampaignRequest):
+    """Complete hybrid workflow: Research → Creative → Campaign"""
+    print(f"Hybrid campaign request: {request.company} - {request.website}")
+    
+    try:
+        # Step 1: Research Phase
+        print("🔍 Phase 1: Market Research")
+        research_request = ResearchRequest(
+            company=request.company,
+            website=request.website,
+            goals=request.goals,
+            target_audience=request.target_audience
+        )
+        research_result = await research_endpoint(research_request)
+        
+        # Extract research report properly from JSONResponse
+        if hasattr(research_result, 'body'):
+            research_data = json.loads(research_result.body.decode())
+        else:
+            # research_result is already a JSONResponse object
+            research_data = research_result.__dict__
+            if 'body' in research_data:
+                research_data = json.loads(research_data['body'])
+        
+        raw_research_data = research_data.get("research_report", "")
+        print(f"📋 Raw research data length: {len(raw_research_data)} chars")
+        print(f"📋 Raw research preview: {raw_research_data[:200]}...")
+        
+        # Step 2: Research Analysis Phase
+        print("📊 Phase 2: Research Analysis")
+        analysis_query = f"""
+        Raw Research Data from Marketing Agent:
+        {raw_research_data}
+        
+        Company: {request.company}
+        Target Audience: {request.target_audience}
+        Goals: {request.goals}
+        
+        Please analyze this raw research data and create a comprehensive intelligence report.
+        """
+        
+        analysis_result = await query_agent(analysis_runner, analysis_session_service, analysis_query)
+        research_report = analysis_result["response"]
+        print(f"📋 Structured research report length: {len(research_report)} chars")
+        print(f"📋 Structured report preview: {research_report[:200]}...")
+        
+        # Step 3: Get Raw Campaign Ideas from Grok API
+        print("🎨 Phase 3a: Grok API Call")
+        
+        # Import and call Grok directly to get raw campaign ideas
+        from creative_director.tools import grok_creative_assistant
+        
+        grok_result = grok_creative_assistant(
+            research_report=research_report,
+            goals_audience=f"{request.target_audience} - {request.goals}",
+            company_name=request.company
+        )
+        
+        print(f"📋 Grok result status: {grok_result.get('status', 'unknown')}")
+        print(f"📋 Campaign ideas count: {len(grok_result.get('campaign_ideas', []))}")
+        print(f"📋 Grok source: {grok_result.get('source', 'unknown')}")
+        
+        # DEBUG: Print the actual Grok response structure
+        print(f"🔍 DEBUG: Grok response keys: {list(grok_result.keys())}")
+        print(f"🔍 DEBUG: First 500 chars of Grok response: {str(grok_result)[:500]}")
+        
+        # Step 4: Creative Director Agent Formats the Grok Response
+        print("🎨 Phase 3b: Creative Director Processing")
+        
+        creative_query = f"""
+        Raw Grok API Response:
+        {str(grok_result)}
+        
+        Research Intelligence Report:
+        {research_report}
+        
+        Company: {request.company}
+        Target Audience: {request.target_audience}
+        Goals: {request.goals}
+        
+        Your task is to take the raw Grok API response above and transform it into beautiful, structured campaign presentations that users can easily select from. 
+        
+        Create 2 polished campaign concepts with:
+        - Campaign names and taglines
+        - Key messaging and positioning
+        - Visual concepts and creative direction  
+        - Channel strategies and tactics
+        - Success metrics and KPIs
+        - Implementation timelines
+        
+        Format these as professional campaign presentations ready for client selection.
+        """
+        
+        creative_result = await query_agent(creative_runner, creative_session_service, creative_query)
+        campaign_concepts = creative_result["response"]
+        
+        print(f"📋 Campaign concepts length: {len(campaign_concepts)} chars")
+        print(f"📋 Campaign concepts preview: {campaign_concepts[:200]}...")
+        
+        return JSONResponse(content={
+            "success": True,
+            "workflow": "hybrid",
+            "research_report": research_report,
+            "campaign_concepts": campaign_concepts,
+            "timestamp": datetime.now().isoformat(),
+            "message": "Complete hybrid workflow executed successfully"
+        })
+        
+    except Exception as e:
+        logger.error(f"Hybrid campaign error: {e}")
+        raise HTTPException(status_code=500, detail=f"Hybrid workflow failed: {str(e)}")
+
+# Legacy endpoint for backward compatibility
+@app.post("/query")
+async def legacy_query_endpoint(request: MarketingRequest):
+    """Legacy endpoint - redirects to hybrid workflow"""
+    print(f"🔍 DEBUG: Received request data:")
+    print(f"  Company: {request.company}")
+    print(f"  Website: {request.website}")
+    print(f"  Goals: {request.goals}")
+    print(f"  Target Audience: {request.target_audience}")
+    print(f"Legacy query redirected to hybrid workflow: {request.company}")
+    
+    hybrid_request = HybridCampaignRequest(
+        company=request.company,
+        website=request.website,
+        goals=request.goals,
+        target_audience=request.target_audience
+    )
+    
+    return await hybrid_campaign_endpoint(hybrid_request)
 
 # To run this app locally for testing:
 # uvicorn service.main:app --reload
@@ -179,7 +444,7 @@ async def generate_visual_concept(request: VisualConceptRequest):
     """
     Generate Instagram caption and visual concept from campaign content using AI
     """
-    print(f"Generating visual concept for: {request.concept}")
+    print(f"Generating visual concept for: {request.campaign}")
     try:
         # If we have campaign content, use AI to generate Instagram content
         if request.campaign_content:
@@ -202,7 +467,7 @@ You are an Instagram marketing specialist. Create engaging Instagram content fro
 SELECTED CAMPAIGN:
 {request.campaign_content}
 
-CONCEPT NUMBER: {request.concept}
+CONCEPT NUMBER: {request.campaign}
 
 Generate TWO things:
 
@@ -278,9 +543,9 @@ VISUAL_DESCRIPTION: [detailed image description ending with "NO text or words in
             image_concept = visual_description
         else:
             # Fallback to original concept if no campaign content provided
-            image_concept = request.concept if request.concept else "Professional marketing image"
-            caption = request.concept if request.concept else "Marketing content"
-            visual_description = request.concept if request.concept else "Professional marketing image"
+            image_concept = request.campaign if request.campaign else "Professional marketing image"
+            caption = request.campaign if request.campaign else "Marketing content"
+            visual_description = request.campaign if request.campaign else "Professional marketing image"
         
         # Import the simple generator for image generation
         sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -292,9 +557,28 @@ VISUAL_DESCRIPTION: [detailed image description ending with "NO text or words in
         # Add the caption and visual description to the response
         result['caption'] = caption
         result['visual_description'] = visual_description
-        result['concept'] = f"Concept {request.concept}"
+        result['concept'] = f"Concept {request.campaign}"
         
-        return VisualConceptResponse(**result)
+        # Create the proper response structure for VisualConceptResponse
+        import uuid
+        import datetime
+        
+        response_data = {
+            "success": result.get('success', False),
+            "visual_concept": result.get('image_data', ''),  # Base64 image data
+            "session_id": str(uuid.uuid4()),
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        
+        # Add additional data that frontend might need
+        if result.get('caption'):
+            response_data['caption'] = result['caption']
+        if result.get('visual_description'):
+            response_data['visual_description'] = result['visual_description']
+        if result.get('filename'):
+            response_data['filename'] = result['filename']
+        
+        return VisualConceptResponse(**response_data)
         
     except Exception as e:
         print(f"Visual concept generation failed: {e}")
@@ -351,7 +635,7 @@ async def generate_script(request: dict):
         import uuid
         session_id = str(uuid.uuid4())
         
-        session = await session_service.create_session(
+        session = await veo_session_service.create_session(
             app_name=APP_NAME, 
             user_id=USER_ID, 
             session_id=session_id
@@ -384,7 +668,7 @@ Make it specific to this campaign and visual concept, not generic."""
         )
         
         # Create runner for script writer agent
-        script_runner = Runner(agent=script_writer_agent, app_name=APP_NAME, session_service=session_service)
+        script_runner = Runner(agent=script_writer_agent, app_name=APP_NAME, session_service=veo_session_service)
         
         # Run the script writer agent
         events = []
@@ -395,20 +679,46 @@ Make it specific to this campaign and visual concept, not generic."""
         ):
             events.append(event)
         
-        # Extract the script from events
+        # Extract the script from events - look for function call results and text responses
         script_responses = []
-        for event in events:
-            if (hasattr(event, 'content') and event.content and 
-                hasattr(event.content, 'parts') and event.content.parts and 
-                len(event.content.parts) > 0 and event.content.parts[0] and
-                hasattr(event.content.parts[0], 'text')):
-                if event.content.role == 'model':
-                    response_text = event.content.parts[0].text
-                    if response_text and response_text.strip():
-                        script_responses.append(response_text)
+        function_call_scripts = []
         
-        # Use the last response as the script
-        final_script = script_responses[-1] if script_responses else "Default script generation failed"
+        for event in events:
+            if hasattr(event, 'content') and event.content and hasattr(event.content, 'parts') and event.content.parts:
+                for part in event.content.parts:
+                    # Look for function calls with create_veo_script
+                    if hasattr(part, 'function_call') and part.function_call:
+                        if part.function_call.name == 'create_veo_script':
+                            script_content = part.function_call.args.get('request', '')
+                            if script_content and script_content.strip():
+                                function_call_scripts.append(script_content)
+                                print(f"Found script in function call: {script_content[:200]}...")
+                    
+                    # Also look for function responses
+                    if hasattr(part, 'function_response') and part.function_response:
+                        if part.function_response.name == 'create_veo_script':
+                            response_result = part.function_response.response.get('result', '')
+                            if response_result and response_result.strip():
+                                function_call_scripts.append(response_result)
+                                print(f"Found script in function response: {response_result[:200]}...")
+                    
+                    # Look for text responses
+                    if hasattr(part, 'text') and part.text:
+                        if event.content.role == 'model':
+                            response_text = part.text
+                            if response_text and response_text.strip():
+                                script_responses.append(response_text)
+        
+        # Prefer the function call script over text responses
+        if function_call_scripts:
+            final_script = function_call_scripts[-1]  # Use the last/most refined script
+            print(f"Using function call script: {final_script[:200]}...")
+        elif script_responses:
+            final_script = script_responses[-1]
+            print(f"Using text response script: {final_script[:200]}...")
+        else:
+            final_script = "Default script generation failed"
+            print("No script found in events")
         
         return {
             "success": True,

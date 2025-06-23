@@ -1,10 +1,20 @@
 // This file will be populated by your CI/CD pipeline or environment configuration.
 // For local development, you can create a firebase-config.local.js and reference it.
 
+// Firebase Configuration
+// SECURITY NOTE: This Firebase API key is safe to be public as it only allows
+// Firebase Authentication and is restricted by Firebase Security Rules
 const firebaseConfig = {
-  // This configuration is now loaded dynamically and securely by Firebase Hosting
-  // The content is provided by `/__/firebase/init.js`
+    apiKey: "AIzaSyCFZkSE50Zh9kzioNE1RfWfNO4gGUkqs7I",
+    authDomain: "adkchl.firebaseapp.com",
+    projectId: "adkchl",
+    storageBucket: "adkchl.firebasestorage.app",
+    messagingSenderId: "661519955445",
+    appId: "1:661519955445:web:86bb0f5aee5b2221019cbc"
 };
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
 
 // Service URL - configure this for your deployment
 const serviceUrl = window.location.hostname === 'localhost' 

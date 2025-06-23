@@ -8,6 +8,7 @@ import json
 import requests
 import os
 from typing import Dict, Any
+from google.adk.tools import FunctionTool
 
 # Load environment variables from .env file
 try:
@@ -319,4 +320,7 @@ def _generate_mock_ideas(research_report: str, goals_audience: str, company_name
         "Plan content calendar and production timeline"
     ]
     
-    return creative_ideas 
+    return creative_ideas
+
+# Create FunctionTool wrapper for the grok_creative_assistant
+grok_creative_assistant_tool = FunctionTool(func=grok_creative_assistant) 

@@ -60,6 +60,14 @@ Thumbs.db
 .firebaserc
 firebase-debug.log
 firebase-debug.*.log
+firebase-config.local.js
+firebase-config.production.js
+
+# Firebase API keys (if accidentally created as separate files)
+firebase-api-key.txt
+google-api-key.txt
+*-api-key.json
+*-api-key.txt
 
 # Google Cloud
 .gcloudignore

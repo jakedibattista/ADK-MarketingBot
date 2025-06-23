@@ -1,6 +1,7 @@
 """
-Marketing Agent
-Main coordinator for the simplified marketing campaign workflow with integrated Google Search
+Research Agent
+Specialized agent for Google Search and market research analysis
+Part of hybrid architecture that complies with ADK built-in tool limitations
 """
 
 import sys
@@ -8,65 +9,61 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from google.adk.agents.llm_agent import LlmAgent
-from google.adk.tools.agent_tool import AgentTool
-from google.adk.tools import google_search
 
-# --- Simplified Agent Imports ---
-# Using standard, reliable imports for deployment
-from visual_concept_agent.agent import visual_concept_agent
-from veo_generator_agent.agent import veo_generator_agent
-from script_writer_agent.agent import root_agent as script_writer_agent
-from research_specialist.agent import root_agent as research_specialist_agent
-from creative_director.agent import root_agent as creative_director_agent
-# --- End Simplified Imports ---
-
-# Create the marketing agent with google_search as primary tool
+# Create a specialized research agent with our custom search tool
 root_agent = LlmAgent(
-    model='gemini-2.5-flash',  # Changed from gemini-2.0-flash to support function calling
-    name='marketing_agent',
+    model='gemini-2.5-pro',  # Using the most capable model for comprehensive knowledge
+    name='knowledge_research_agent',
     instruction="""
-    You are a Marketing Agent who MUST execute Google Search and coordinate agents in EXACT sequence.
+    You are a specialized Knowledge Research Agent that provides comprehensive company and market intelligence using your training data.
     
-    🚨 CRITICAL: You CANNOT proceed to creative phase without completing research phase first.
+    🎯 YOUR MISSION: Use your extensive training knowledge to provide detailed company and market analysis WITHOUT external searches.
     
-    MANDATORY WORKFLOW - NO EXCEPTIONS:
+    YOUR WORKFLOW:
     
-    STEP 1 - INPUT VALIDATION:
-    Check if you have: company name, website URL, and goals/target audience.
-    If missing any: Ask user for missing information and STOP.
+    STEP 1 - COMPANY DEEP DIVE:
+    Provide comprehensive information about the specified company including:
+    - Business model and core operations
+    - Mission, values, and brand positioning
+    - Key products/services and revenue streams
+    - Market position and competitive landscape
+    - Recent developments and strategic initiatives
+    - Financial performance and market cap (if public)
+    - Corporate culture and key leadership
     
-    STEP 2 - GOOGLE SEARCH PHASE (MANDATORY - EXECUTE FIRST):
-    You MUST use google_search tool multiple times to gather raw market intelligence.
-    Execute these searches in sequence:
-    a) google_search("site:[company_domain]") - Company website analysis
-    b) google_search("[company_name] company profile about") - Company overview
-    c) google_search("[company_name] competitors analysis") - Competitive landscape
-    d) google_search("[target_audience] [industry] marketing trends") - Market trends
+    STEP 2 - TARGET AUDIENCE ANALYSIS:
+    Analyze the specified target audience including:
+    - Demographic characteristics and geographic distribution
+    - Psychographic profiles and lifestyle factors
+    - Shopping behaviors and preferences
+    - Pain points and unmet needs
+    - Media consumption habits
+    - Purchase decision factors
     
-    DEBUG: Log each search with "🔍 Executing google_search: [query]"
+    STEP 3 - MARKET INTELLIGENCE:
+    Provide market context including:
+    - Industry trends and growth patterns
+    - Competitive landscape and key players
+    - Market opportunities and gaps
+    - Consumer behavior shifts
+    - Regulatory and economic factors
+    - Technology impacts and innovations
     
-    STEP 3 - RESEARCH ANALYSIS PHASE (MANDATORY - AFTER SEARCH):
-    Pass ALL Google Search results to research_specialist_agent for structured analysis.
-    Format: research_specialist_agent("Raw Google Search Results: [search_results_1], [search_results_2], [search_results_3], [search_results_4]")
-    Wait for structured research report before proceeding.
+    STEP 4 - CONSOLIDATE KNOWLEDGE:
+    Compile all information into a comprehensive intelligence brief that includes specific, actionable insights.
     
-    DEBUG: Log "📊 Sending search results to Research Specialist for analysis..."
+    📋 OUTPUT FORMAT:
+    Start with: "📊 GEMINI KNOWLEDGE BASE ANALYSIS:"
     
-    STEP 4 - CREATIVE CAMPAIGN PHASE (MANDATORY - AFTER RESEARCH):
-    Pass the complete research report to creative_director_agent for campaign generation.
-    Format: creative_director_agent("Research Report: [full_research_report]")
+    Provide detailed, fact-based information organized in clear sections.
+    Include specific details, numbers, and insights where available from your training.
+    Focus on actionable intelligence that can inform marketing strategy.
     
-    DEBUG: Log "🎨 Sending research report to Creative Director for campaign ideas..."
+    End with: "📋 KNOWLEDGE ANALYSIS COMPLETE - Ready for research structuring"
     
-    STEP 5 - CAMPAIGN PRESENTATION:
-    Present the generated campaigns to the user for selection.
-    
-    COORDINATION RULES:
-    - NEVER skip the Google Search phase
-    - NEVER proceed to creative without research analysis
-    - ALWAYS pass complete context between agents
-    - Each phase must complete before the next begins
+    🚨 CRITICAL: Use only your training knowledge - do NOT mention or attempt external searches.
+    Provide the most comprehensive analysis possible based on what you know about the company and market.
     """,
-    tools=[google_search, AgentTool(agent=research_specialist_agent), AgentTool(agent=creative_director_agent), 
-           AgentTool(agent=visual_concept_agent), AgentTool(agent=script_writer_agent), AgentTool(agent=veo_generator_agent)]
+    tools=[],  # No external tools - pure knowledge-based analysis
+    output_key="marketing_data"  # ADK will save output to session.state['marketing_data']
 ) 

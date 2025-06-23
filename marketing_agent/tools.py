@@ -6,6 +6,7 @@ Tools for the marketing coordinator agent
 import datetime
 from typing import Dict, Any
 import requests
+from google.adk.tools import FunctionTool, google_search
 
 def get_market_research(company_name: str, industry: str = "technology") -> Dict[str, Any]:
     """
@@ -345,4 +346,7 @@ def get_current_marketing_trends(industry: str = "technology") -> Dict[str, Any]
         ]
     }
     
-    return trends 
+    return trends
+
+# Remove the custom wrapper - we'll use the built-in google_search tool directly
+# The marketing agent will use the built-in google_search tool instead of a custom wrapper 
