@@ -444,5 +444,15 @@ async def generate_video_direct(request: dict):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-# Add static file serving
-app.mount("/static", StaticFiles(directory="static"), name="static") 
+# Add static file serving (optional)
+import os
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Run the server
+if __name__ == "__main__":
+    import uvicorn
+    print("🚀 Starting ADK Marketing Platform server...")
+    print("📍 Server will be available at: http://localhost:8080")
+    print("📋 API documentation at: http://localhost:8080/docs")
+    uvicorn.run(app, host="0.0.0.0", port=8080) 
