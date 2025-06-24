@@ -4,7 +4,7 @@
 
 **COMPLETED PLATFORM** - Generate complete marketing campaigns with AI agents that research companies, create campaigns, design visuals, write video scripts, and produce marketing videos using Veo 2.0.
 
-*Repository updated by @jakedibattista - January 2025*
+[*Repository updated by @jakedibattista - June 2025 as Cursor was confuigured to old account*](https://lucid.app/lucidchart/ca9bc6d8-b971-41be-b6ea-280c99c5522d/edit?viewport_loc=-248%2C70%2C4488%2C2243%2C0_0&invitationId=inv_6db227c8-a569-4bb8-9656-cca22aae922f)
 
 ## 🎯 Platform Status: FULLY OPERATIONAL at https://adkchl.web.app/
 
