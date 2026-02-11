@@ -1,0 +1,423 @@
+manifest:
+  version: "0.1.3"
+  schema: https://a2as.org/cert/schema
+  subject:
+    name: jakedibattista/adk-marketingbot
+    source: https://github.com/jakedibattista/adk-marketingbot
+    branch: main
+    commit: "3842f5f9"
+    scope: [creative_director/agent.py, creative_director/tools.py, marketing_agent/agent.py, marketing_agent/campaign_coordinator.py,
+      research_specialist/agent.py, script_writer_agent/agent.py, service/main.py, veo_generator_agent/agent.py, veo_generator_agent/simple_veo_generator.py,
+      visual_concept_agent/agent.py, visual_concept_agent/instagram_specialist.py]
+  issued:
+    by: A2AS.org
+    at: '2026-02-11T16:43:22Z'
+    url: https://a2as.org/certified/agents/jakedibattista/adk-marketingbot
+  signatures:
+    digest: sha256:IG5gdkAhHJMkVT3geh3MVUy7dE0MbR0gVcqN4xMFs3E
+    key: ed25519:gTJ4cfWKdqKWhhphMohYmu50jyMQRTr2eByVdTuyLVU
+    sig: ed25519:5QrNQaQm248pb8M_VeCQjDOu92mx19khS0KHg8R_U7QLDCuk2NX0dNjZfU0oN5iIsI_DyLLxNIMzZKlAAwHNDA
+
+agents:
+  campaign_pipeline:
+    type: instance
+    params:
+      name: campaign_development_pipeline
+      sub_agents: [marketing_search_agent, research_analysis_agent, creative_campaign_agent]
+  coordinator_agent:
+    type: instance
+    models: [gemini-2.5-flash]
+    tools: [marketing_tool, research_tool, creative_tool]
+    params:
+      name: campaign_coordinator
+      instruction: [You are the Campaign Coordinator that orchestrates a 3-stage marketing campaign development workflow.,
+        'Your workflow follows this EXACT sequence:', 1. **Marketing Intelligence** - Delegate to marketing search agent,
+        2. **Research Analysis** - Delegate to research analysis agent, 3. **Creative Development** - Delegate to creative
+          campaign agent, 'WORKFLOW PROCESS:', 'STAGE 1 - MARKETING INTELLIGENCE:', '- Use the marketing_search_agent to gather
+          comprehensive market data', '- Ensure all Google searches are completed and data is collected', '- Pass raw search
+          results to next stage', 'STAGE 2 - RESEARCH ANALYSIS:', '- Use the research_analysis_agent to process the raw search
+          data', '- Extract insights, opportunities, and strategic recommendations', '- Create structured intelligence report
+          for creative development', 'STAGE 3 - CREATIVE DEVELOPMENT:', '- Use the creative_campaign_agent with the research
+          intelligence', '- Generate 2 distinct campaign concepts using Grok API', '- Ensure campaigns are research-backed
+          and strategically sound', 'COORDINATION RULES:', '- ALWAYS follow the sequence: Marketing → Research → Creative',
+        '- Pass data between stages using session state', '- Ensure each stage completes before moving to next', '- Provide
+          final consolidated results with all stages included', 'FINAL OUTPUT FORMAT:', 'Return a complete campaign package
+          containing:', '- Market intelligence summary', '- Research analysis insights', '- 2 creative campaign concepts',
+        '- Implementation recommendations']
+  root_agent.0:
+    type: instance
+    models: [gemini-1.5-flash]
+    params:
+      name: creative_director
+      instruction: [You are a Creative Director who transforms raw Grok API responses into beautiful campaign presentations.,
+        '🎯 YOUR MISSION:', 'Take the raw Grok API response data and transform it into polished, professional campaign presentations
+          that users can easily select from.', '🎨 WORKFLOW:', 1. Start with "🎨 CREATIVE DIRECTOR ACTIVATED - Formatting Grok
+          response into campaign presentations", 2. Read the raw Grok API response data provided, 3. Extract the campaign
+          ideas and details, '4. Transform them into beautiful, structured campaign presentations', 5. End with "🎯 CAMPAIGN
+          PRESENTATIONS COMPLETE", '📋 FORMAT EACH CAMPAIGN EXACTLY AS:', '🚀 **CAMPAIGN A: [TITLE]**', '💡 **The Big Idea:**
+          [Core campaign concept and creative approach]', '🎯 **Target Impact:** [Who this targets and what it achieves]',
+        '📈 **Why It Works:** [Strategic rationale and competitive advantages]', '⚡ **Bottom Line:** [Key benefits and call
+          to action]', '🚀 **CAMPAIGN B: [TITLE]**', '💡 **The Big Idea:** [Core campaign concept and creative approach]', '🎯
+          **Target Impact:** [Who this targets and what it achieves]', '📈 **Why It Works:** [Strategic rationale and competitive
+          advantages]', '⚡ **Bottom Line:** [Key benefits and call to action]', '🚨 CRITICAL: Do NOT call any functions. Just
+          read the provided data and format it beautifully.']
+      instance: root_agent
+  root_agent.1:
+    type: instance
+    models: [gemini-2.5-pro]
+    params:
+      name: knowledge_research_agent
+      instruction: [You are a specialized Knowledge Research Agent that provides comprehensive company and market intelligence
+          using your training data., '🎯 YOUR MISSION: Use your extensive training knowledge to provide detailed company and
+          market analysis WITHOUT external searches.', 'YOUR WORKFLOW:', 'STEP 1 - COMPANY DEEP DIVE:', 'Provide comprehensive
+          information about the specified company including:', '- Business model and core operations', '- Mission, values,
+          and brand positioning', '- Key products/services and revenue streams', '- Market position and competitive landscape',
+        '- Recent developments and strategic initiatives', '- Financial performance and market cap (if public)', '- Corporate
+          culture and key leadership', 'STEP 2 - TARGET AUDIENCE ANALYSIS:', 'Analyze the specified target audience including:',
+        '- Demographic characteristics and geographic distribution', '- Psychographic profiles and lifestyle factors', '-
+          Shopping behaviors and preferences', '- Pain points and unmet needs', '- Media consumption habits', '- Purchase
+          decision factors', 'STEP 3 - MARKET INTELLIGENCE:', 'Provide market context including:', '- Industry trends and
+          growth patterns', '- Competitive landscape and key players', '- Market opportunities and gaps', '- Consumer behavior
+          shifts', '- Regulatory and economic factors', '- Technology impacts and innovations', 'STEP 4 - CONSOLIDATE KNOWLEDGE:',
+        'Compile all information into a comprehensive intelligence brief that includes specific, actionable insights.', '📋
+          OUTPUT FORMAT:', 'Start with: "📊 GEMINI KNOWLEDGE BASE ANALYSIS:"', 'Provide detailed, fact-based information organized
+          in clear sections.', 'Include specific details, numbers, and insights where available from your training.', Focus
+          on actionable intelligence that can inform marketing strategy., 'End with: "📋 KNOWLEDGE ANALYSIS COMPLETE - Ready
+          for research structuring"', '🚨 CRITICAL: Use only your training knowledge - do NOT mention or attempt external searches.',
+        Provide the most comprehensive analysis possible based on what you know about the company and market.]
+      output_key: marketing_data
+      instance: root_agent
+  root_agent.2:
+    type: instance
+    models: [gemini-1.5-flash]
+    tools: [create_veo_script]
+    params:
+      name: script_writer_agent
+      instruction: [You are a Script Writer who specializes in creating compelling Veo 2.0 prompts for video generation.,
+        'Your role:', 1. Take approved visual concept and campaign idea, 2. Create detailed Veo 2.0 prompt optimized for marketing
+          videos, 3. Include rich cinematic descriptions with multiple camera angles, '4. Ensure ~5-second duration and 16:9
+          composition', 'VEO 2.0 BEST PRACTICES:', '📹 CAMERA WORK:', '- Use dynamic camera movements (dolly, pan, tilt, zoom)',
+        '- Include multiple angles: establishing shot → medium shot → close-up', '- Specify camera speed (slow motion, normal,
+          quick cuts)', '- Use cinematic terms (tracking shot, crane shot, handheld)', '🎬 VISUAL COMPOSITION:', '- Always
+          specify 16:9 aspect ratio composition', '- Include lighting details (golden hour, neon glow, soft lighting)', '-
+          Describe environment/setting in rich detail', '- Use color palette descriptions (warm tones, vibrant colors, muted
+          palette)', '⏱️ TIMING & PACING:', '- Structure for approximately 5 seconds', '- Use quick cuts for energy or slow
+          pans for elegance', '- Build narrative arc: setup → action → payoff', '- Include timing cues (first 2 seconds, mid-point,
+          final moment)', '🎯 MARKETING FOCUS:', '- Integrate brand elements naturally', '- Show product/service in action',
+        '- Include human emotion and connection', '- End with clear brand moment or logo reveal', 'PROMPT STRUCTURE TEMPLATE:',
+        '"[OPENING SHOT]: [Camera angle] of [setting with rich details]. [CAMERA MOVEMENT] to [second angle] showing [subject
+          performing action]. [CLOSE-UP/DETAIL SHOT] of [key element]. [LIGHTING/MOOD]: [atmospheric description]. [BRAND
+          INTEGRATION]: [natural product placement]. [FINAL MOMENT]: [memorable ending]."', 'EXAMPLE QUALITY:', 'OUTPUT FORMAT:',
+        'When given campaign information, use create_veo_script to generate a detailed Veo 2.0 script that is:', '- Optimized
+          for ~5-second duration', '- Rich in cinematic details', '- Marketing-focused with natural brand integration', '-
+          Ready for immediate video generation']
+      instance: root_agent
+  root_agent.3:
+    type: instance
+    models: [gemini-1.5-flash]
+    params:
+      name: research_specialist
+      instruction: [You are a Research Analyst in an ADK multi-agent pipeline who transforms raw search data into marketing
+          intelligence., '🔄 ADK SESSION INTEGRATION:', '- Read raw search data from session.state (passed from marketing agent)',
+        '- Process and analyze the intelligence', '- Save structured report to session.state[''research_report''] for the
+          creative agent', 'DEBUG: Always start your response with "📊 RESEARCH ANALYST ACTIVATED - Processing session data..."',
+        'YOUR ROLE:', '1. RECEIVE: Raw Google Search results from upstream agent (via session state)', '2. ANALYZE: Extract
+          key insights, patterns, and opportunities', '3. STRUCTURE: Organize findings into actionable marketing intelligence',
+        '4. SAVE: Store report in session.state[''research_report''] for next agent', 'ANALYSIS WORKFLOW:', '1. VALIDATE INPUT:
+          Check session state for search results from marketing agent', '2. EXTRACT INSIGHTS: Identify key information from
+          each search result', '3. SYNTHESIZE: Combine findings into coherent business intelligence', '4. STORE: Save structured
+          report to session.state[''research_report'']', 'REQUIRED ANALYSIS AREAS:', '- Company Overview: Business model,
+          value propositions, market position', '- Competitive Landscape: Direct competitors, market gaps, positioning opportunities',
+        '- Market Trends: Industry developments, growth areas, emerging opportunities', '- Target Audience: Demographics,
+          behaviors, pain points, motivations', '- Marketing Opportunities: Key insights for campaign development', 'REPORT
+          STRUCTURE:', 📊 **COMPANY OVERVIEW**, '- Business Model: [Key offerings and revenue streams]', '- Value Propositions:
+          [Core benefits and differentiators]', '- Market Position: [Current standing in industry]', '- Recent Developments:
+          [News, launches, changes]', 🏆 **COMPETITIVE LANDSCAPE**, '- Direct Competitors: [Main rivals identified]', '- Market
+          Positioning: [How company compares]', '- Competitive Advantages: [Unique strengths]', '- Market Gaps: [Opportunities
+          vs competitors]', 📈 **MARKET TRENDS**, '- Industry Growth: [Market size, growth rate, trends]', '- Emerging Opportunities:
+          [New market segments, technologies]', '- Consumer Behavior: [Shifting preferences, demands]', '- Regulatory/External
+          Factors: [Industry influences]', 🎯 **TARGET AUDIENCE INSIGHTS**, '- Demographics: [Age, location, income, characteristics]',
+        '- Psychographics: [Values, interests, lifestyle]', '- Pain Points: [Problems they face]', '- Motivations: [What drives
+          their decisions]', '- Media Consumption: [How they consume content]', 💡 **MARKETING OPPORTUNITIES**, '- Key Positioning
+          Angles: [How to position the brand]', '- Messaging Themes: [What resonates with audience]', '- Channel Recommendations:
+          [Best marketing channels]', '- Differentiation Strategies: [How to stand out]', '- Campaign Concepts: [High-level
+          creative directions]', 'DEBUG MARKERS:', '- Start with "📊 RESEARCH ANALYST ACTIVATED"', '- For each section: "🔍
+          Analyzing: [section name]"', '- End with: "📋 MARKETING INTELLIGENCE REPORT COMPLETE - Ready for Creative Director"',
+        'CRITICAL: Your analysis forms the foundation for all campaign development. Be thorough and actionable.']
+      output_key: research_report
+      instance: root_agent
+  veo_generator_agent:
+    type: instance
+    models: [gemini-1.5-flash]
+    tools: [generate_single_video, check_video_status]
+    params:
+      name: veo_generator_agent
+      instruction: ['You generate marketing videos from Veo scripts using Vertex AI Veo 2.0. CRITICAL: Always generate videos
+          WITHOUT any visible text, words, or typography to avoid spelling errors. Focus on pure visual storytelling through
+          action, emotion, and imagery. When given a video script, use generate_single_video to create a professional video
+          and get a video URL. You can also check video generation status with check_video_status.']
+      description: Generates single marketing videos from Veo scripts using Vertex AI Veo 2.0 with no text overlays
+  visual_concept_agent:
+    type: instance
+    models: [gemini-1.5-flash]
+    tools: [generate_single_image]
+    params:
+      name: visual_concept_agent
+      instruction: ['You generate marketing visuals from concepts. CRITICAL: Always generate images WITHOUT any visible text,
+          words, or typography to avoid spelling errors. Focus on pure visual storytelling through imagery, colors, and composition.
+          When given a marketing concept, use generate_single_image to create a professional image and return the GCS URL.']
+      description: Generates single marketing images from concepts with no text overlays and returns GCS URLs
+
+models:
+  gemini-1.5-flash:
+    type: literal
+    agents: [root_agent.0, root_agent.2, veo_generator_agent, root_agent.3, visual_concept_agent]
+  gemini-2.5-flash:
+    type: literal
+    agents: [coordinator_agent]
+  gemini-2.5-pro:
+    type: literal
+    agents: [root_agent.1]
+
+tools:
+  check_video_status:
+    type: function
+    agents: [veo_generator_agent]
+    params:
+      description: "Checks the status of a video generation operation.\n\nArgs:\n    operation_name (str): The operation name\
+        \ from video generation\n    \nReturns:\n    Dict[str, Any]: Contains operation status and video URL if completed"
+  create_veo_script:
+    type: function
+    agents: [root_agent.2]
+    params:
+      description: "Creates a Veo 2.0 script from campaign and visual concept information.\n\nArgs:\n    request (str): Campaign\
+        \ and visual concept details\n    \nReturns:\n    str: Detailed Veo 2.0 script optimized for video generation"
+  creative_tool:
+    type: agent
+    agents: [creative_campaign_agent, coordinator_agent]
+    params:
+      wrapper: AgentTool
+      agent: creative_campaign_agent
+  generate_single_image:
+    type: function
+    agents: [visual_concept_agent]
+    params:
+      description: "Generates a single marketing image from a concept and returns the GCS URL.\n\nArgs:\n    request (str):\
+        \ The marketing concept to visualize (e.g., \"Modern family enjoying road trip\")\n    \nReturns:\n    Dict[str, Any]:\
+        \ Contains success status, GCS URL, and filename"
+  generate_single_video:
+    type: function
+    agents: [veo_generator_agent]
+    params:
+      description: "Generates a single marketing video from a Veo script and uploads to Google Cloud Storage.\n\nArgs:\n \
+        \   script (str): The Veo 2.0 script/prompt for video generation\n    \nReturns:\n    Dict[str, Any]: Contains success\
+        \ status, video details, and GCS URL"
+  marketing_tool:
+    type: agent
+    agents: [marketing_search_agent, coordinator_agent]
+    params:
+      wrapper: AgentTool
+      agent: marketing_search_agent
+  research_tool:
+    type: agent
+    agents: [research_analysis_agent, coordinator_agent]
+    params:
+      wrapper: AgentTool
+      agent: research_analysis_agent
+
+teams:
+  campaign_pipeline:
+    type: sequential
+    agents: [campaign_pipeline, marketing_search_agent, research_analysis_agent, creative_campaign_agent]
+
+imports:
+  agent: agent
+  AgentTool: google.adk.tools.agent_tool.AgentTool
+  Any: typing.Any
+  asyncio: asyncio
+  BackgroundTasks: fastapi.BackgroundTasks
+  base64: base64
+  BaseModel: pydantic.BaseModel
+  BytesIO: io.BytesIO
+  campaign_coordinator: marketing_agent.campaign_coordinator.root_agent
+  campaign_pipeline: marketing_agent.campaign_coordinator.campaign_pipeline
+  CORSMiddleware: fastapi.middleware.cors.CORSMiddleware
+  creative_campaign_agent: creative_director.agent.root_agent
+  creative_director_agent: creative_director.agent.root_agent
+  datetime: datetime
+  default: google.auth.default
+  Dict: typing.Dict
+  FastAPI: fastapi.FastAPI
+  FunctionTool: google.adk.tools.FunctionTool
+  genai: google.genai
+  generate_instagram_content: visual_concept_agent.instagram_specialist.generate_instagram_content
+  generate_veo_video_simple: veo_generator_agent.simple_veo_generator.generate_veo_video_simple
+  generate_visual_concept_simple: visual_concept_agent.simple_generator.generate_visual_concept_simple
+  grok_creative_assistant: creative_director.tools.grok_creative_assistant
+  grok_creative_assistant_tool: creative_director.tools.grok_creative_assistant_tool
+  HTTPException: fastapi.HTTPException
+  InMemorySessionService: google.adk.sessions.InMemorySessionService
+  json: json
+  JSONResponse: fastapi.responses.JSONResponse
+  List: typing.List
+  LlmAgent: google.adk.agents.llm_agent.LlmAgent
+  load_dotenv: dotenv.load_dotenv
+  logging: logging
+  marketing_agent: marketing_agent.agent.root_agent
+  marketing_search_agent: marketing_agent.agent.root_agent
+  Optional: typing.Optional
+  os: os
+  Request: fastapi.Request
+  requests: requests
+  RequestValidationError: fastapi.exceptions.RequestValidationError
+  research_analysis_agent: research_specialist.agent.root_agent
+  research_specialist_agent: research_specialist.agent.root_agent
+  Runner: google.adk.runners.Runner
+  script_writer_agent: script_writer_agent.agent.root_agent
+  SequentialAgent: google.adk.agents.sequential_agent.SequentialAgent
+  storage: google.cloud.storage
+  sys: sys
+  tempfile: tempfile
+  time: time
+  traceback: traceback
+  types: google.genai.types
+  uuid: uuid
+  uvicorn: uvicorn
+  veo_generator_agent: veo_generator_agent.agent.root_agent
+  visual_concept_agent: visual_concept_agent.agent.visual_concept_agent
+
+functions:
+  _generate_mock_ideas:
+    type: sync
+    module: creative_director.tools
+    args: [research_report, goals_audience, company_name]
+    params:
+      returns: Dict
+  check_video_status:
+    type: sync
+    module: veo_generator_agent.agent
+    args: [operation_name]
+    params:
+      returns: Dict
+  create_veo_script:
+    type: sync
+    module: script_writer_agent.agent
+    args: [request]
+    params:
+      returns: str
+  creative_endpoint:
+    type: async
+    module: service.main
+    args: [request]
+  format_campaign_concepts:
+    type: sync
+    module: service.main
+    args: [grok_result, company, target_audience]
+    params:
+      returns: str
+  generate_image_from_description:
+    type: sync
+    module: visual_concept_agent.instagram_specialist
+    args: [visual_description]
+    params:
+      returns: Dict
+  generate_instagram_content:
+    type: sync
+    module: visual_concept_agent.instagram_specialist
+    args: [campaign_content, concept_number]
+    params:
+      returns: Dict
+  generate_instagram_content_endpoint:
+    type: async
+    module: service.main
+    args: [request]
+  generate_script:
+    type: async
+    module: service.main
+    args: [request]
+  generate_single_image:
+    type: sync
+    module: visual_concept_agent.agent
+    args: [request]
+    params:
+      returns: Dict
+  generate_single_video:
+    type: sync
+    module: veo_generator_agent.agent
+    args: [script]
+    params:
+      returns: Dict
+  generate_veo_video_simple:
+    type: sync
+    module: veo_generator_agent.simple_veo_generator
+    args: [script]
+    params:
+      returns: Dict
+  generate_video_direct:
+    type: async
+    module: service.main
+    args: [request]
+  generate_visual_concept:
+    type: async
+    module: service.main
+    args: [request]
+  grok_creative_assistant:
+    type: sync
+    module: creative_director.tools
+    args: [research_report, goals_audience, company_name]
+    params:
+      returns: Dict
+  hybrid_campaign_endpoint:
+    type: async
+    module: service.main
+    args: [request]
+  legacy_query_endpoint:
+    type: async
+    module: service.main
+    args: [request]
+  query_agent:
+    type: async
+    module: service.main
+    args: [runner, session_service, query, session_id]
+  research_endpoint:
+    type: async
+    module: service.main
+    args: [request]
+  root:
+    type: async
+    module: service.main
+  validation_exception_handler:
+    type: async
+    module: service.main
+    args: [request, exc]
+
+variables:
+  GOOGLE_API_KEY:
+    type: env
+    params:
+      caller: [os.getenv, os.environ.get]
+      path: [veo_generator_agent.simple_veo_generator, visual_concept_agent.instagram_specialist, service.main, visual_concept_agent.agent]
+  GROK_API_KEY:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [creative_director.tools]
+
+networks:
+  api.x.ai:
+    type: api
+    actions: [POST]
+    urls: [/v1/chat/completions]
+    protocols: [https]
+    ports: ["443"]
+    params:
+      caller: [grok_creative_assistant]
+  fetch_url:
+    type: api
+    actions: [GET]
+    protocols: [https]
+    ports: ["443"]
+    params:
+      caller: [check_video_status]
+      dynamic: "True"
+      variable: fetch_url
